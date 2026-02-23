@@ -1,0 +1,50 @@
+name: Monthly Repository Audit
+
+on:
+  schedule:
+    - cron: '0 9 1 * *'  # 毎月1日 9:00 UTC
+  workflow_dispatch:       # 手動トリガーも可能
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q jq
+
+      - name: Run audit (report only)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_AUDIT_USERNAME: ${{ vars.REPO_AUDIT_USERNAME }}
+        run: |
+          chmod +x ./repo-audit.sh
+          mkdir -p reports
+          ./repo-audit.sh --report-only --output reports/
+
+      - name: Commit report
+        run: |
+          git config user.name "repo-health-bot"
+          git config user.email "bot@repo-health"
+          git add reports/
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: monthly audit report $(date +%Y-%m)"
+            git push
+          fi
+
+      - name: Create stale issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_AUDIT_USERNAME: ${{ vars.REPO_AUDIT_USERNAME }}
+        run: |
+          ./repo-audit.sh --create-issues
+        continue-on-error: true
