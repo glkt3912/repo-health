@@ -1,0 +1,18 @@
+# GitHub ユーザー名は環境変数 REPO_AUDIT_USERNAME または .env で設定する
+# 例: echo 'REPO_AUDIT_USERNAME=your-username' >> .env
+
+thresholds:
+  stale_months: 6
+  archive_months: 12
+
+# 常にアクティブ扱いにするリポジトリ（push 日時に関わらず評価対象外）
+# 本ツール自身や dotfiles など、頻繁に更新しないが常に使用中のものを列挙する
+# 例:
+#   always_active:
+#     - dotfiles
+#     - portfolio
+#     - this-repo-name
+always_active: []
+
+report:
+  output_dir: ~/repo-health-reports/
