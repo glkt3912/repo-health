@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "docs": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Volumes/Dev-SSD/dev/docs-mcp-server/build/index.js"],
+      "env": {
+        "LOCAL_MODE": "true",
+        "PROJECT_ROOT": "/Volumes/Dev-SSD/dev/repo-health",
+        "DOCS_BASE_PATH": "./docs"
+      }
+    }
+  }
+}

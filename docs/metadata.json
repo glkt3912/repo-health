@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-02-23",
+  "documents": [
+    {
+      "id": "overview",
+      "path": "docs/overview.md",
+      "title": "repo-health 概要",
+      "description": "ツールの目的・設計方針・3段階評価ロジック（ACTIVE/STALE/ARCHIVE）・always_active 除外・依存ツール一覧",
+      "tags": ["概要", "設計", "評価ロジック"],
+      "industry": ["IT"],
+      "topics": ["gh CLI", "jq", "ACTIVE", "STALE", "ARCHIVE", "always_active", "config.yml"],
+      "updatedAt": "2026-02-23"
+    },
+    {
+      "id": "usage",
+      "path": "docs/usage.md",
+      "title": "使い方",
+      "description": "セットアップ手順・全コマンドオプション（--report-only / --interactive / --create-issues / --fix-meta）の詳細・レポート出力例",
+      "tags": ["使い方", "コマンド", "セットアップ"],
+      "industry": ["IT"],
+      "topics": ["--report-only", "--interactive", "--create-issues", "--fix-meta", "--output", "gh repo archive", "gh repo edit"],
+      "updatedAt": "2026-02-23"
+    },
+    {
+      "id": "config",
+      "path": "docs/config.md",
+      "title": "設定リファレンス",
+      "description": "config.yml の全設定項目（github.username / thresholds / always_active / report.output_dir）の意味・デフォルト値・yq フォールバック動作",
+      "tags": ["設定", "config", "リファレンス"],
+      "industry": ["IT"],
+      "topics": ["config.yml", "stale_months", "archive_months", "always_active", "output_dir", "yq"],
+      "updatedAt": "2026-02-23"
+    },
+    {
+      "id": "automation",
+      "path": "docs/automation.md",
+      "title": "自動化",
+      "description": "macOS LaunchAgent による月次自動実行・plist の場所・ログ確認方法、GitHub Actions ワークフローの実行フロー・手動トリガー・reports/ への履歴蓄積",
+      "tags": ["自動化", "LaunchAgent", "GitHub Actions"],
+      "industry": ["IT"],
+      "topics": ["LaunchAgent", "launchctl", "monthly-audit.yml", "cron", "GITHUB_TOKEN", "reports/"],
+      "updatedAt": "2026-02-23"
+    }
+  ]
+}
