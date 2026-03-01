@@ -212,8 +212,9 @@ for i in $(seq 0 $((TOTAL - 1))); do
   desc="$(echo "${REPOS_JSON}" | jq -r ".[$i].description // \"\"")"
   is_archived="$(echo "${REPOS_JSON}" | jq -r ".[$i].isArchived")"
 
-  # アーカイブ済みはスキップ
+  # アーカイブ済み・フォークはスキップ
   [[ "$is_archived" == "true" ]] && continue
+  [[ "$is_fork" == "true" ]] && continue
 
   REPO_PUSHED["$name"]="$pushed_at"
   REPO_LANG["$name"]="$lang"
@@ -417,8 +418,7 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
       if gh issue create \
         --repo "${USERNAME}/${name}" \
         --title "🟡 Repository Health Check: 放置気味 (${ago})" \
-        --body "${ISSUE_BODY}" \
-        --label "maintenance" 2>/dev/null; then
+        --body "${ISSUE_BODY}" 2>/dev/null; then
         echo -e "${GREEN}done${NC}"
       else
         echo -e "${YELLOW}skipped (label not found or issue already exists)${NC}"
