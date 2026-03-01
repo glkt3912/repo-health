@@ -15,14 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run audit (report only)
+      - name: Run audit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
           REPO_AUDIT_USERNAME: ${{ vars.REPO_AUDIT_USERNAME }}
         run: |
           chmod +x ./repo-audit.sh
           mkdir -p reports
-          ./repo-audit.sh --report-only --output reports/
+          ./repo-audit.sh --output reports/ --create-issues
 
       - name: Commit report
         run: |
@@ -35,11 +35,3 @@ jobs:
             git commit -m "chore: monthly audit report $(date +%Y-%m)"
             git push
           fi
-
-      - name: Create stale issues
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          REPO_AUDIT_USERNAME: ${{ vars.REPO_AUDIT_USERNAME }}
-        run: |
-          ./repo-audit.sh --create-issues
-        continue-on-error: true

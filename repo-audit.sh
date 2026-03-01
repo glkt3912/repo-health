@@ -393,28 +393,35 @@ if [[ "${CREATE_ISSUES}" == false && "${INTERACTIVE}" == false && "${FIX_META}" 
   esac
 fi
 
-# ─── STALE Issue 作成 ───
+# ─── Issue 作成（STALE + ARCHIVE） ───
 if [[ "${CREATE_ISSUES}" == true ]]; then
-  if [[ ${#STALE_REPOS[@]} -eq 0 ]]; then
-    echo "No STALE repositories found."
-  else
+  CREATED_STALE=()
+  CREATED_ARCHIVE=()
+  SKIPPED_REPOS=()
+
+  # オープンな Health Check Issue が既存かチェックする共通処理
+  has_open_issue() {
+    local repo="$1"
+    local count
+    count="$(gh issue list \
+      --repo "${USERNAME}/${repo}" \
+      --state open \
+      --search "Repository Health Check in:title" \
+      --json number \
+      --jq 'length' 2>/dev/null || echo 0)"
+    [[ "${count}" -gt 0 ]]
+  }
+
+  # STALE リポジトリへの Issue 作成
+  if [[ ${#STALE_REPOS[@]} -gt 0 ]]; then
     echo -e "\n${YELLOW}${BOLD}--- Creating issues for STALE repositories ---${NC}"
-    CREATED_REPOS=()
-    SKIPPED_REPOS=()
     for name in "${STALE_REPOS[@]}"; do
       ago="$(format_pushed_ago "${REPO_PUSHED[$name]:-}")"
       echo -n "  Creating issue for ${name}... "
 
-      # オープンな Health Check Issue が既存かチェック
-      existing="$(gh issue list \
-        --repo "${USERNAME}/${name}" \
-        --state open \
-        --search "Repository Health Check in:title" \
-        --json number \
-        --jq 'length' 2>/dev/null || echo 0)"
-      if [[ "${existing}" -gt 0 ]]; then
+      if has_open_issue "${name}"; then
         echo -e "${YELLOW}skipped (open issue already exists)${NC}"
-        SKIPPED_REPOS+=("${name} (${ago}) — open issue already exists")
+        SKIPPED_REPOS+=("🟡 ${name} (${ago}) — open issue already exists")
         continue
       fi
 
@@ -435,53 +442,105 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
         --title "🟡 Repository Health Check: 放置気味 (${ago})" \
         --body "${ISSUE_BODY}" 2>&1)"; then
         echo -e "${GREEN}done${NC}"
-        CREATED_REPOS+=("${name} (${ago})")
+        CREATED_STALE+=("${name} (${ago})")
       else
         echo -e "${YELLOW}skipped (${err})${NC}"
-        SKIPPED_REPOS+=("${name} (${ago}) — ${err}")
+        SKIPPED_REPOS+=("🟡 ${name} (${ago}) — ${err}")
       fi
     done
+  fi
 
-    # repo-health 自身にサマリー Issue を作成
-    SUMMARY_BODY="## Audit Summary: ${TODAY}
+  # ARCHIVE リポジトリへの Issue 作成
+  if [[ ${#ARCHIVE_REPOS[@]} -gt 0 ]]; then
+    echo -e "\n${RED}${BOLD}--- Creating issues for ARCHIVE candidate repositories ---${NC}"
+    for name in "${ARCHIVE_REPOS[@]}"; do
+      ago="$(format_pushed_ago "${REPO_PUSHED[$name]:-}")"
+      echo -n "  Creating issue for ${name}... "
 
-### 🟡 Issue を作成したリポジトリ (${#CREATED_REPOS[@]} 件)"
-    if [[ ${#CREATED_REPOS[@]} -gt 0 ]]; then
-      for entry in "${CREATED_REPOS[@]}"; do
-        SUMMARY_BODY+="
-- ${USERNAME}/${entry}"
-      done
-    else
-      SUMMARY_BODY+="
-(なし)"
-    fi
+      if has_open_issue "${name}"; then
+        echo -e "${YELLOW}skipped (open issue already exists)${NC}"
+        SKIPPED_REPOS+=("🔴 ${name} (${ago}) — open issue already exists")
+        continue
+      fi
 
-    SUMMARY_BODY+="
+      ISSUE_BODY="## Repository Health Check — Archive Candidate
 
-### ⏭️ スキップしたリポジトリ (${#SKIPPED_REPOS[@]} 件)"
-    if [[ ${#SKIPPED_REPOS[@]} -gt 0 ]]; then
-      for entry in "${SKIPPED_REPOS[@]}"; do
-        SUMMARY_BODY+="
-- ${USERNAME}/${entry}"
-      done
-    else
-      SUMMARY_BODY+="
-(なし)"
-    fi
+**Last pushed:** ${ago}
 
-    SUMMARY_BODY+="
+このリポジトリは長期間更新されておらず、アーカイブ候補です。以下のいずれかのアクションを検討してください:
+
+- [ ] リポジトリをアーカイブする（推奨）
+- [ ] リポジトリを削除する
+- [ ] 継続して開発する（README/description を更新）
 
 *このIssueは repo-health ツールによって自動作成されました。*"
 
-    echo -e "\n  Creating summary issue in repo-health... "
-    if gh issue create \
-      --repo "${USERNAME}/repo-health" \
-      --title "📋 Audit Report: ${TODAY} (STALE ${#STALE_REPOS[@]} repos)" \
-      --body "${SUMMARY_BODY}" 2>/dev/null; then
-      echo -e "${GREEN}done${NC}"
-    else
-      echo -e "${YELLOW}skipped${NC}"
-    fi
+      if err="$(gh issue create \
+        --repo "${USERNAME}/${name}" \
+        --title "🔴 Repository Archive Candidate: 長期放置 (${ago})" \
+        --body "${ISSUE_BODY}" 2>&1)"; then
+        echo -e "${GREEN}done${NC}"
+        CREATED_ARCHIVE+=("${name} (${ago})")
+      else
+        echo -e "${YELLOW}skipped (${err})${NC}"
+        SKIPPED_REPOS+=("🔴 ${name} (${ago}) — ${err}")
+      fi
+    done
+  fi
+
+  # repo-health 自身にサマリー Issue を作成
+  echo -e "\n  Creating summary issue in repo-health... "
+
+  SUMMARY_BODY="## Audit Summary: ${TODAY}
+
+### 🟡 STALE — Issue を作成 (${#CREATED_STALE[@]} 件)"
+  if [[ ${#CREATED_STALE[@]} -gt 0 ]]; then
+    for entry in "${CREATED_STALE[@]}"; do
+      SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+    done
+  else
+    SUMMARY_BODY+="
+(なし)"
+  fi
+
+  SUMMARY_BODY+="
+
+### 🔴 ARCHIVE — Issue を作成 (${#CREATED_ARCHIVE[@]} 件)"
+  if [[ ${#CREATED_ARCHIVE[@]} -gt 0 ]]; then
+    for entry in "${CREATED_ARCHIVE[@]}"; do
+      SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+    done
+  else
+    SUMMARY_BODY+="
+(なし)"
+  fi
+
+  SUMMARY_BODY+="
+
+### ⏭️ スキップ (${#SKIPPED_REPOS[@]} 件)"
+  if [[ ${#SKIPPED_REPOS[@]} -gt 0 ]]; then
+    for entry in "${SKIPPED_REPOS[@]}"; do
+      SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+    done
+  else
+    SUMMARY_BODY+="
+(なし)"
+  fi
+
+  SUMMARY_BODY+="
+
+*このIssueは repo-health ツールによって自動作成されました。*"
+
+  if err="$(gh issue create \
+    --repo "${USERNAME}/repo-health" \
+    --title "📋 Audit Report: ${TODAY} (🟡 ${#STALE_REPOS[@]} / 🔴 ${#ARCHIVE_REPOS[@]})" \
+    --body "${SUMMARY_BODY}" 2>&1)"; then
+    echo -e "${GREEN}done${NC}"
+  else
+    echo -e "${YELLOW}skipped (${err})${NC}"
   fi
 fi
 
