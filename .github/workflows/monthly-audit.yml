@@ -15,11 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q jq
-
       - name: Run audit (report only)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

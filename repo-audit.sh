@@ -405,6 +405,19 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
       ago="$(format_pushed_ago "${REPO_PUSHED[$name]:-}")"
       echo -n "  Creating issue for ${name}... "
 
+      # オープンな Health Check Issue が既存かチェック
+      existing="$(gh issue list \
+        --repo "${USERNAME}/${name}" \
+        --state open \
+        --search "Repository Health Check in:title" \
+        --json number \
+        --jq 'length' 2>/dev/null || echo 0)"
+      if [[ "${existing}" -gt 0 ]]; then
+        echo -e "${YELLOW}skipped (open issue already exists)${NC}"
+        SKIPPED_REPOS+=("${name} (${ago}) — open issue already exists")
+        continue
+      fi
+
       ISSUE_BODY="## Repository Health Check
 
 **Last pushed:** ${ago}
@@ -417,15 +430,15 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
 
 *このIssueは repo-health ツールによって自動作成されました。*"
 
-      if gh issue create \
+      if err="$(gh issue create \
         --repo "${USERNAME}/${name}" \
         --title "🟡 Repository Health Check: 放置気味 (${ago})" \
-        --body "${ISSUE_BODY}" 2>/dev/null; then
+        --body "${ISSUE_BODY}" 2>&1)"; then
         echo -e "${GREEN}done${NC}"
         CREATED_REPOS+=("${name} (${ago})")
       else
-        echo -e "${YELLOW}skipped (label not found or issue already exists)${NC}"
-        SKIPPED_REPOS+=("${name} (${ago})")
+        echo -e "${YELLOW}skipped (${err})${NC}"
+        SKIPPED_REPOS+=("${name} (${ago}) — ${err}")
       fi
     done
 
