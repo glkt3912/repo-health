@@ -399,6 +399,8 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
     echo "No STALE repositories found."
   else
     echo -e "\n${YELLOW}${BOLD}--- Creating issues for STALE repositories ---${NC}"
+    CREATED_REPOS=()
+    SKIPPED_REPOS=()
     for name in "${STALE_REPOS[@]}"; do
       ago="$(format_pushed_ago "${REPO_PUSHED[$name]:-}")"
       echo -n "  Creating issue for ${name}... "
@@ -420,10 +422,53 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
         --title "🟡 Repository Health Check: 放置気味 (${ago})" \
         --body "${ISSUE_BODY}" 2>/dev/null; then
         echo -e "${GREEN}done${NC}"
+        CREATED_REPOS+=("${name} (${ago})")
       else
         echo -e "${YELLOW}skipped (label not found or issue already exists)${NC}"
+        SKIPPED_REPOS+=("${name} (${ago})")
       fi
     done
+
+    # repo-health 自身にサマリー Issue を作成
+    SUMMARY_BODY="## Audit Summary: ${TODAY}
+
+### 🟡 Issue を作成したリポジトリ (${#CREATED_REPOS[@]} 件)"
+    if [[ ${#CREATED_REPOS[@]} -gt 0 ]]; then
+      for entry in "${CREATED_REPOS[@]}"; do
+        SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+      done
+    else
+      SUMMARY_BODY+="
+(なし)"
+    fi
+
+    SUMMARY_BODY+="
+
+### ⏭️ スキップしたリポジトリ (${#SKIPPED_REPOS[@]} 件)"
+    if [[ ${#SKIPPED_REPOS[@]} -gt 0 ]]; then
+      for entry in "${SKIPPED_REPOS[@]}"; do
+        SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+      done
+    else
+      SUMMARY_BODY+="
+(なし)"
+    fi
+
+    SUMMARY_BODY+="
+
+*このIssueは repo-health ツールによって自動作成されました。*"
+
+    echo -e "\n  Creating summary issue in repo-health... "
+    if gh issue create \
+      --repo "${USERNAME}/repo-health" \
+      --title "📋 Audit Report: ${TODAY} (STALE ${#STALE_REPOS[@]} repos)" \
+      --body "${SUMMARY_BODY}" 2>/dev/null; then
+      echo -e "${GREEN}done${NC}"
+    else
+      echo -e "${YELLOW}skipped${NC}"
+    fi
   fi
 fi
 
