@@ -103,18 +103,22 @@ done
 parse_config() {
   local key="$1"
   if command -v yq &>/dev/null; then
-    yq -r ".${key}" "${CONFIG_FILE}" 2>/dev/null || echo ""
+    local val
+    val=$(yq -r ".${key}" "${CONFIG_FILE}" 2>/dev/null || echo "")
+    [[ "$val" == "null" ]] && val=""
+    echo "$val"
   else
-    # 簡易パース: "key: value" 形式のみ対応
-    grep -E "^  ${key}:" "${CONFIG_FILE}" 2>/dev/null | sed 's/.*: *//' | tr -d '"' || echo ""
+    # 簡易パース: ネストキー (foo.bar) の末尾部分で grep
+    local leaf="${key##*.}"
+    grep -E "^\s+${leaf}:" "${CONFIG_FILE}" 2>/dev/null | sed 's/.*: *//' | tr -d '"' || echo ""
   fi
 }
 
 # 優先順位: 環境変数 > config.yml > デフォルト値
 # username は config.yml には持たず、環境変数または .env で必須設定
-_cfg_stale="$(parse_config 'stale_months')"
-_cfg_archive="$(parse_config 'archive_months')"
-_cfg_output_dir="$(parse_config 'output_dir' | sed "s|~|${HOME}|g")"
+_cfg_stale="$(parse_config 'thresholds.stale_months')"
+_cfg_archive="$(parse_config 'thresholds.archive_months')"
+_cfg_output_dir="$(parse_config 'report.output_dir' | sed "s|~|${HOME}|g")"
 
 USERNAME="${REPO_AUDIT_USERNAME:-}"
 STALE_MONTHS="${REPO_AUDIT_STALE_MONTHS:-${_cfg_stale:-6}}"
