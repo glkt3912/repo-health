@@ -212,11 +212,52 @@ check_readme() {
   fi
 }
 
+# オープンな Health Check Issue が存在するか確認
+has_open_issue() {
+  local repo="$1"
+  local count
+  count="$(gh issue list \
+    --repo "${USERNAME}/${repo}" \
+    --state open \
+    --search "Repository Health Check in:title" \
+    --json number \
+    --jq 'length' 2>/dev/null || echo 0)"
+  [[ "${count}" -gt 0 ]]
+}
+
+# オープンな Health Check Issue をすべてクローズ（アーカイブ前に実行）
+close_health_check_issues() {
+  local repo="$1"
+  local issue_numbers
+  issue_numbers="$(gh issue list \
+    --repo "${USERNAME}/${repo}" \
+    --state open \
+    --search "Repository Health Check in:title" \
+    --json number \
+    --jq '.[].number' 2>/dev/null || echo "")"
+
+  if [[ -z "$issue_numbers" ]]; then
+    return
+  fi
+
+  while IFS= read -r num; do
+    [[ -z "$num" ]] && continue
+    gh issue close "$num" \
+      --repo "${USERNAME}/${repo}" \
+      --comment "このリポジトリは ${TODAY} に repo-health により自動アーカイブされました。Issue をクローズします。" \
+      2>/dev/null && echo -e "    ${GREEN}✓ Issue #${num} closed${NC}" \
+      || echo -e "    ${YELLOW}✗ Issue #${num} close failed (skipped)${NC}"
+  done <<< "$issue_numbers"
+}
+
 # ─── アーカイブ前スタンプ: description + README にアーカイブ理由を記録 ───
 stamp_repo_before_archive() {
   local name="$1"
   local pushed_ago="$2"
   echo -e "  ${BOLD}Stamping ${name}...${NC}"
+
+  # 既存の Health Check Issue をアーカイブ前にクローズ
+  close_health_check_issues "$name"
 
   # description にアーカイブ理由プレフィックスを付与
   if [[ "${ARCHIVE_UPDATE_DESC}" == "true" ]]; then
@@ -476,19 +517,6 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
   CREATED_ARCHIVE=()
   SKIPPED_REPOS=()
 
-  # オープンな Health Check Issue が既存かチェックする共通処理
-  has_open_issue() {
-    local repo="$1"
-    local count
-    count="$(gh issue list \
-      --repo "${USERNAME}/${repo}" \
-      --state open \
-      --search "Repository Health Check in:title" \
-      --json number \
-      --jq 'length' 2>/dev/null || echo 0)"
-    [[ "${count}" -gt 0 ]]
-  }
-
   # STALE リポジトリへの Issue 作成
   if [[ ${#STALE_REPOS[@]} -gt 0 ]]; then
     echo -e "\n${YELLOW}${BOLD}--- Creating issues for STALE repositories ---${NC}"
@@ -528,7 +556,8 @@ if [[ "${CREATE_ISSUES}" == true ]]; then
   fi
 
   # ARCHIVE リポジトリへの Issue 作成
-  if [[ ${#ARCHIVE_REPOS[@]} -gt 0 ]]; then
+  # --auto-archive と併用時はスキップ（どうせアーカイブするため Issue を作っても意味がない）
+  if [[ ${#ARCHIVE_REPOS[@]} -gt 0 && "${AUTO_ARCHIVE}" == false ]]; then
     echo -e "\n${RED}${BOLD}--- Creating issues for ARCHIVE candidate repositories ---${NC}"
     for name in "${ARCHIVE_REPOS[@]}"; do
       ago="$(format_pushed_ago "${REPO_PUSHED[$name]:-}")"
