@@ -22,7 +22,9 @@ jobs:
         run: |
           chmod +x ./repo-audit.sh
           mkdir -p reports
-          ./repo-audit.sh --output reports/ --create-issues
+          # --auto-archive: ARCHIVE 候補を自動アーカイブ（description/README に理由を記録後にアーカイブ）
+          # --create-issues: STALE リポジトリに Health Check Issue を作成
+          ./repo-audit.sh --output reports/ --create-issues --auto-archive
 
       - name: Commit report
         run: |

@@ -14,5 +14,14 @@ thresholds:
 #     - this-repo-name
 always_active: []
 
+# --auto-archive 実行時の動作設定
+archive:
+  # アーカイブ前に description の先頭に理由を付与するか
+  update_description: true
+  # アーカイブ前に README.md 先頭にアーカイブバナーを挿入するか（README がない場合はスキップ）
+  update_readme: true
+  # description に付けるプレフィックス
+  description_prefix: "[Archived by repo-health]"
+
 report:
   output_dir: ~/repo-health-reports/

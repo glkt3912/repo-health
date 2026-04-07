@@ -41,6 +41,7 @@ REPORT_ONLY=false
 CREATE_ISSUES=false
 INTERACTIVE=false
 FIX_META=false
+AUTO_ARCHIVE=false
 OUTPUT_DIR=""
 
 usage() {
@@ -54,6 +55,8 @@ Options:
   --output DIR        レポートをファイルに保存
   --create-issues     STALE リポジトリに GitHub Issue を作成
   --interactive       ARCHIVE 候補を対話的にアーカイブ
+  --auto-archive      ARCHIVE 候補を自動アーカイブ（CI向け・非対話型）
+                      アーカイブ前に description と README にアーカイブ理由を記録する
   --fix-meta          description/topics を一括補完モード
   -h, --help          このヘルプを表示
 
@@ -70,6 +73,7 @@ Examples:
   ./repo-audit.sh --fix-meta                           # description/topics 補完
   ./repo-audit.sh --report-only --output reports/      # ファイルに保存
   ./repo-audit.sh --create-issues                      # STALE に Issue を自動作成
+  ./repo-audit.sh --auto-archive                       # ARCHIVE 候補を自動アーカイブ（CI向け）
   REPO_AUDIT_USERNAME=other-user ./repo-audit.sh       # 別アカウントを監査
   REPO_AUDIT_STALE_MONTHS=3 ./repo-audit.sh            # しきい値を一時変更
 USAGE
@@ -81,6 +85,7 @@ while [[ $# -gt 0 ]]; do
     --report-only)    REPORT_ONLY=true; shift ;;
     --create-issues)  CREATE_ISSUES=true; shift ;;
     --interactive)    INTERACTIVE=true; shift ;;
+    --auto-archive)   AUTO_ARCHIVE=true; shift ;;
     --fix-meta)       FIX_META=true; shift ;;
     --output)         OUTPUT_DIR="$2"; shift 2 ;;
     -h|--help)        usage; exit 0 ;;
@@ -119,11 +124,17 @@ parse_config() {
 _cfg_stale="$(parse_config 'thresholds.stale_months')"
 _cfg_archive="$(parse_config 'thresholds.archive_months')"
 _cfg_output_dir="$(parse_config 'report.output_dir' | sed "s|~|${HOME}|g")"
+_cfg_update_desc="$(parse_config 'archive.update_description')"
+_cfg_update_readme="$(parse_config 'archive.update_readme')"
+_cfg_desc_prefix="$(parse_config 'archive.description_prefix')"
 
 USERNAME="${REPO_AUDIT_USERNAME:-}"
 STALE_MONTHS="${REPO_AUDIT_STALE_MONTHS:-${_cfg_stale:-6}}"
 ARCHIVE_MONTHS="${REPO_AUDIT_ARCHIVE_MONTHS:-${_cfg_archive:-12}}"
 REPORT_OUTPUT_DIR="${REPO_AUDIT_OUTPUT_DIR:-${_cfg_output_dir:-${HOME}/repo-health-reports/}}"
+ARCHIVE_UPDATE_DESC="${REPO_AUDIT_ARCHIVE_UPDATE_DESC:-${_cfg_update_desc:-true}}"
+ARCHIVE_UPDATE_README="${REPO_AUDIT_ARCHIVE_UPDATE_README:-${_cfg_update_readme:-true}}"
+ARCHIVE_DESC_PREFIX="${REPO_AUDIT_ARCHIVE_DESC_PREFIX:-${_cfg_desc_prefix:-[Archived by repo-health]}}"
 
 # USERNAME が未設定の場合は設定方法を案内して終了
 if [[ -z "${USERNAME}" ]]; then
@@ -198,6 +209,72 @@ check_readme() {
     echo "true"
   else
     echo "false"
+  fi
+}
+
+# ─── アーカイブ前スタンプ: description + README にアーカイブ理由を記録 ───
+stamp_repo_before_archive() {
+  local name="$1"
+  local pushed_ago="$2"
+  echo -e "  ${BOLD}Stamping ${name}...${NC}"
+
+  # description にアーカイブ理由プレフィックスを付与
+  if [[ "${ARCHIVE_UPDATE_DESC}" == "true" ]]; then
+    local orig_desc="${REPO_DESC[$name]:-}"
+    local new_desc
+    if [[ -n "$orig_desc" ]]; then
+      new_desc="${ARCHIVE_DESC_PREFIX} ${orig_desc}"
+    else
+      new_desc="${ARCHIVE_DESC_PREFIX} last pushed: ${pushed_ago}"
+    fi
+    # GitHub description は最大255文字
+    new_desc="${new_desc:0:255}"
+    if gh repo edit "${USERNAME}/${name}" --description "$new_desc" 2>/dev/null; then
+      echo -e "    ${GREEN}✓ description updated${NC}"
+    else
+      echo -e "    ${YELLOW}✗ description update failed (skipped)${NC}"
+    fi
+  fi
+
+  # README.md 先頭にアーカイブバナーを挿入
+  if [[ "${ARCHIVE_UPDATE_README}" == "true" && "${REPO_HAS_README[$name]:-false}" == "true" ]]; then
+    local readme_json readme_sha readme_path readme_content new_content encoded tmp_json
+
+    readme_json="$(gh api "repos/${USERNAME}/${name}/readme" 2>/dev/null || echo "")"
+    if [[ -z "$readme_json" ]]; then
+      echo -e "    ${YELLOW}✗ README fetch failed (skipped)${NC}"
+      return
+    fi
+
+    readme_sha="$(echo "$readme_json" | jq -r '.sha')"
+    readme_path="$(echo "$readme_json" | jq -r '.path')"
+    # base64 デコード（GitHub API は改行入り base64 を返すため改行を除去してからデコード）
+    readme_content="$(echo "$readme_json" | jq -r '.content' | tr -d '\n' | base64 --decode)"
+
+    new_content="> **[Archived]** このリポジトリは ${TODAY} に repo-health により自動アーカイブされました。
+> 最終更新から ${ARCHIVE_MONTHS} ヶ月以上経過しているため、読み取り専用になっています。
+
+---
+
+${readme_content}"
+
+    # base64 エンコード（改行なし、GNU/macOS 両対応）
+    encoded="$(printf '%s' "$new_content" | base64 | tr -d '\n')"
+
+    tmp_json="$(mktemp)"
+    jq -n \
+      --arg msg "chore: add archive notice to README [repo-health]" \
+      --arg content "$encoded" \
+      --arg sha "$readme_sha" \
+      '{message: $msg, content: $content, sha: $sha}' > "$tmp_json"
+
+    if gh api -X PUT "repos/${USERNAME}/${name}/contents/${readme_path}" \
+        --input "$tmp_json" &>/dev/null; then
+      echo -e "    ${GREEN}✓ README banner inserted${NC}"
+    else
+      echo -e "    ${YELLOW}✗ README update failed (skipped)${NC}"
+    fi
+    rm -f "$tmp_json"
   fi
 }
 
@@ -373,7 +450,7 @@ if [[ "${REPORT_ONLY}" == true ]]; then
 fi
 
 # ─── アクション選択 ───
-if [[ "${CREATE_ISSUES}" == false && "${INTERACTIVE}" == false && "${FIX_META}" == false ]]; then
+if [[ "${CREATE_ISSUES}" == false && "${INTERACTIVE}" == false && "${FIX_META}" == false && "${AUTO_ARCHIVE}" == false ]]; then
   echo ""
   echo -e "${BOLD}Actions:${NC}"
   echo "  [1] レポートを ~/repo-health-reports/ に保存"
@@ -628,4 +705,81 @@ if [[ "${FIX_META}" == true ]]; then
   done
 
   echo -e "${GREEN}Meta fix complete.${NC}"
+fi
+
+# ─── 自動アーカイブ（CI向け・非対話型） ───
+if [[ "${AUTO_ARCHIVE}" == true ]]; then
+  if [[ ${#ARCHIVE_REPOS[@]} -eq 0 ]]; then
+    echo -e "\n${GREEN}No ARCHIVE candidates found. Nothing to archive.${NC}"
+  else
+    echo -e "\n${RED}${BOLD}--- Auto Archive Mode (${#ARCHIVE_REPOS[@]} candidates) ---${NC}"
+    echo "description と README にアーカイブ理由を記録してからアーカイブします。"
+
+    ARCHIVED=()
+    FAILED=()
+
+    for name in "${ARCHIVE_REPOS[@]}"; do
+      ago="$(format_pushed_ago "${REPO_PUSHED[$name]:-}")"
+      echo ""
+      echo -e "  ${BOLD}[${name}]${NC} — last pushed: ${ago}"
+
+      # description / README にアーカイブ理由を記録
+      stamp_repo_before_archive "$name" "$ago"
+
+      # アーカイブ実行
+      echo -n "    Archiving... "
+      if gh repo archive "${USERNAME}/${name}" --yes 2>/dev/null; then
+        echo -e "${GREEN}done${NC}"
+        ARCHIVED+=("${name} (${ago})")
+      else
+        echo -e "${RED}failed${NC}"
+        FAILED+=("${name}")
+      fi
+    done
+
+    echo ""
+    echo -e "${BOLD}Auto-archive complete: ${GREEN}${#ARCHIVED[@]} archived${NC}${BOLD}, ${RED}${#FAILED[@]} failed${NC}"
+
+    # repo-health にサマリー Issue を作成
+    ARCHIVE_SUMMARY_BODY="## Auto-Archive Report: ${TODAY}
+
+### 🗄️ アーカイブ済み (${#ARCHIVED[@]} 件)"
+    if [[ ${#ARCHIVED[@]} -gt 0 ]]; then
+      for entry in "${ARCHIVED[@]}"; do
+        ARCHIVE_SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+      done
+    else
+      ARCHIVE_SUMMARY_BODY+="
+(なし)"
+    fi
+
+    if [[ ${#FAILED[@]} -gt 0 ]]; then
+      ARCHIVE_SUMMARY_BODY+="
+
+### ❌ 失敗 (${#FAILED[@]} 件)"
+      for entry in "${FAILED[@]}"; do
+        ARCHIVE_SUMMARY_BODY+="
+- ${USERNAME}/${entry}"
+      done
+    fi
+
+    ARCHIVE_SUMMARY_BODY+="
+
+### 記録内容
+- **description**: \`${ARCHIVE_DESC_PREFIX}\` プレフィックスを付与
+- **README.md**: アーカイブ日時・理由のバナーを先頭に挿入
+
+*このIssueは repo-health ツールによって自動作成されました。*"
+
+    echo -e "\n  Creating summary issue in repo-health... "
+    if err="$(gh issue create \
+      --repo "${USERNAME}/repo-health" \
+      --title "🗄️ Auto-Archive Report: ${TODAY} (${#ARCHIVED[@]} archived)" \
+      --body "${ARCHIVE_SUMMARY_BODY}" 2>&1)"; then
+      echo -e "${GREEN}done${NC}"
+    else
+      echo -e "${YELLOW}skipped (${err})${NC}"
+    fi
+  fi
 fi
