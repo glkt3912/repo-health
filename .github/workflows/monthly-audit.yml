@@ -6,8 +6,13 @@ on:
   workflow_dispatch:       # 手動トリガーも可能
 
 permissions:
-  contents: write
-  issues: write
+  contents: write   # reports/ へのコミット・プッシュ
+  issues: write     # repo-health 自身への Issue 作成
+
+# GH_PAT に必要なスコープ:
+#   repo  - 他リポジトリのアーカイブ・description 変更・README 書き込み・Issue 操作
+#   read:user - ユーザー名の確認（gh コマンドの初期化）
+# ※ GITHUB_TOKEN では他リポジトリへの操作ができないため PAT (GH_PAT) を使用
 
 jobs:
   audit:
@@ -22,7 +27,9 @@ jobs:
         run: |
           chmod +x ./repo-audit.sh
           mkdir -p reports
-          ./repo-audit.sh --output reports/ --create-issues
+          # --auto-archive: ARCHIVE 候補を自動アーカイブ（description/README に理由を記録後にアーカイブ）
+          # --create-issues: STALE リポジトリに Health Check Issue を作成
+          ./repo-audit.sh --output reports/ --create-issues --auto-archive
 
       - name: Commit report
         run: |
