@@ -213,21 +213,27 @@ check_readme() {
 }
 
 # オープンな Health Check Issue が存在するか確認
+# 戻り値: 0=存在する, 1=存在しない, 2=APIエラー（権限不足・リポジトリ不在）
 has_open_issue() {
   local repo="$1"
-  local count
-  count="$(gh issue list \
+  local output
+  if ! output="$(gh issue list \
     --repo "${USERNAME}/${repo}" \
     --state open \
     --search "Repository Health Check in:title" \
     --json number \
-    --jq 'length' 2>/dev/null || echo 0)"
-  [[ "${count}" -gt 0 ]]
+    --jq 'length' 2>&1)"; then
+    echo -e "    ${YELLOW}✗ Issue list failed for ${repo}: ${output}${NC}" >&2
+    return 2
+  fi
+  [[ "${output}" -gt 0 ]]
 }
 
 # オープンな Health Check Issue をすべてクローズ（アーカイブ前に実行）
+# 引数: $1=リポジトリ名, $2=アーカイブ日（依存するグローバル TODAY の代替）
 close_health_check_issues() {
   local repo="$1"
+  local archive_date="${2:-$(date +%Y-%m-%d)}"
   local issue_numbers
   issue_numbers="$(gh issue list \
     --repo "${USERNAME}/${repo}" \
@@ -242,11 +248,14 @@ close_health_check_issues() {
 
   while IFS= read -r num; do
     [[ -z "$num" ]] && continue
-    gh issue close "$num" \
-      --repo "${USERNAME}/${repo}" \
-      --comment "このリポジトリは ${TODAY} に repo-health により自動アーカイブされました。Issue をクローズします。" \
-      2>/dev/null && echo -e "    ${GREEN}✓ Issue #${num} closed${NC}" \
-      || echo -e "    ${YELLOW}✗ Issue #${num} close failed (skipped)${NC}"
+    if gh issue close "$num" \
+        --repo "${USERNAME}/${repo}" \
+        --comment "このリポジトリは ${archive_date} に repo-health により自動アーカイブされました。Issue をクローズします。" \
+        2>/dev/null; then
+      echo -e "    ${GREEN}✓ Issue #${num} closed${NC}"
+    else
+      echo -e "    ${YELLOW}✗ Issue #${num} close failed (skipped)${NC}"
+    fi
   done <<< "$issue_numbers"
 }
 
@@ -256,8 +265,8 @@ stamp_repo_before_archive() {
   local pushed_ago="$2"
   echo -e "  ${BOLD}Stamping ${name}...${NC}"
 
-  # 既存の Health Check Issue をアーカイブ前にクローズ
-  close_health_check_issues "$name"
+  # 既存の Health Check Issue をアーカイブ前にクローズ（TODAY を引数で渡す）
+  close_health_check_issues "$name" "${TODAY}"
 
   # description にアーカイブ理由プレフィックスを付与
   if [[ "${ARCHIVE_UPDATE_DESC}" == "true" ]]; then
@@ -280,6 +289,9 @@ stamp_repo_before_archive() {
   # README.md 先頭にアーカイブバナーを挿入
   if [[ "${ARCHIVE_UPDATE_README}" == "true" && "${REPO_HAS_README[$name]:-false}" == "true" ]]; then
     local readme_json readme_sha readme_path readme_content new_content encoded tmp_json
+    tmp_json=""
+    # 関数終了時（正常・異常問わず）に tmp_json を確実に削除
+    trap '[[ -n "$tmp_json" ]] && rm -f "$tmp_json"' RETURN
 
     readme_json="$(gh api "repos/${USERNAME}/${name}/readme" 2>/dev/null || echo "")"
     if [[ -z "$readme_json" ]]; then
@@ -287,10 +299,21 @@ stamp_repo_before_archive() {
       return
     fi
 
-    readme_sha="$(echo "$readme_json" | jq -r '.sha')"
-    readme_path="$(echo "$readme_json" | jq -r '.path')"
-    # base64 デコード（GitHub API は改行入り base64 を返すため改行を除去してからデコード）
-    readme_content="$(echo "$readme_json" | jq -r '.content' | tr -d '\n' | base64 --decode)"
+    # null チェック: sha / path が取得できない場合はスキップ
+    readme_sha="$(echo "$readme_json" | jq -r '.sha // empty')"
+    readme_path="$(echo "$readme_json" | jq -r '.path // empty')"
+    if [[ -z "$readme_sha" || -z "$readme_path" ]]; then
+      echo -e "    ${YELLOW}✗ README metadata incomplete (skipped)${NC}"
+      return
+    fi
+
+    # base64 デコード（GitHub API は改行入り base64 を返すため改行を除去）
+    # GNU date / macOS date 同様に GNU base64 / BSD base64 を分岐
+    if base64 --version &>/dev/null 2>&1; then
+      readme_content="$(echo "$readme_json" | jq -r '.content' | tr -d '\n' | base64 --decode)"
+    else
+      readme_content="$(echo "$readme_json" | jq -r '.content' | tr -d '\n' | base64 -d)"
+    fi
 
     new_content="> **[Archived]** このリポジトリは ${TODAY} に repo-health により自動アーカイブされました。
 > 最終更新から ${ARCHIVE_MONTHS} ヶ月以上経過しているため、読み取り専用になっています。
@@ -315,7 +338,6 @@ ${readme_content}"
     else
       echo -e "    ${YELLOW}✗ README update failed (skipped)${NC}"
     fi
-    rm -f "$tmp_json"
   fi
 }
 
@@ -676,6 +698,8 @@ if [[ "${INTERACTIVE}" == true ]]; then
       read -r -p "  Archive ${USERNAME}/${name}? [y/N/q]: " ans
       case "$ans" in
         y|Y)
+          # --auto-archive と同様に description/README/Issue にアーカイブ理由を記録してからアーカイブ
+          stamp_repo_before_archive "$name" "$ago"
           echo -n "  Archiving... "
           gh repo archive "${USERNAME}/${name}" --yes
           echo -e "${GREEN}done${NC}"
