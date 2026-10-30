@@ -4,32 +4,43 @@ on:
   schedule:
     - cron: '0 9 1 * *'  # 毎月1日 9:00 UTC
   workflow_dispatch:       # 手動トリガーも可能
+    inputs:
+      skip_archive:
+        description: "--auto-archive を外して実行する（Issue 作成のみで動作確認したいとき）"
+        type: boolean
+        default: false
 
 permissions:
-  contents: write   # reports/ へのコミット・プッシュ
-  issues: write     # repo-health 自身への Issue 作成
+  contents: write   # reports/ へのコミット・プッシュ（GITHUB_TOKEN）
 
-# GH_PAT に必要なスコープ:
-#   repo  - 他リポジトリのアーカイブ・description 変更・README 書き込み・Issue 操作
-#   read:user - ユーザー名の確認（gh コマンドの初期化）
+# GH_PAT は fine-grained PAT（Resource owner: glkt3912 / All repositories / 有効期限 90 日以内）。
+# Issue 作成・アーカイブ等の他リポジトリ操作はすべてこのトークンで行う。必要な Repository permissions:
+#   Administration: Read and write - gh repo archive / gh repo edit (description)
+#   Contents:       Read and write - README への追記 (PUT /contents)
+#   Issues:         Read and write - Health Check Issue の作成・クローズ
+#   Metadata:       Read-only      - gh repo list（自動で付与）
+# Workflows 権限は付けないこと（漏洩時に悪性 workflow を push されるのを防ぐ）
 # ※ GITHUB_TOKEN では他リポジトリへの操作ができないため PAT (GH_PAT) を使用
 
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Run audit
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           REPO_AUDIT_USERNAME: ${{ vars.REPO_AUDIT_USERNAME }}
+          SKIP_ARCHIVE: ${{ inputs.skip_archive }}  # schedule 実行時は空 = アーカイブする
         run: |
           chmod +x ./repo-audit.sh
           mkdir -p reports
           # --auto-archive: ARCHIVE 候補を自動アーカイブ（description/README に理由を記録後にアーカイブ）
           # --create-issues: STALE リポジトリに Health Check Issue を作成
-          ./repo-audit.sh --output reports/ --create-issues --auto-archive
+          archive_flag="--auto-archive"
+          [[ "${SKIP_ARCHIVE}" == "true" ]] && archive_flag=""
+          ./repo-audit.sh --output reports/ --create-issues ${archive_flag}
 
       - name: Commit report
         run: |

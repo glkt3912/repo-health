@@ -96,7 +96,7 @@ always_active:         # 常にアクティブ扱い（除外）。デフォル�
 
 | 種別 | 名前 | 値 |
 | --- | --- | --- |
-| Secret | `GH_PAT` | Fine-grained PAT（Issues: Read and write） |
+| Secret | `GH_PAT` | Fine-grained PAT（All repositories / Administration・Contents・Issues: Read and write / Workflows は付けない / 有効期限 90 日以内） |
 | Variable | `REPO_AUDIT_USERNAME` | GitHub ユーザー名 |
 
 `GH_PAT` の作成: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
