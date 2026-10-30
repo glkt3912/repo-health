@@ -46,7 +46,7 @@ jobs:
         run: |
           git config user.name "repo-health-bot"
           git config user.email "bot@repo-health"
-          git add reports/
+          git add -f reports/  # .gitignore の reports/*.txt はローカル実行用。Actions のレポートは強制的に追加する
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
