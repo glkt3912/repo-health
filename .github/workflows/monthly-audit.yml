@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 9 1 * *'  # 毎月1日 9:00 UTC
   workflow_dispatch:       # 手動トリガーも可能
+    inputs:
+      skip_archive:
+        description: "--auto-archive を外して実行する（Issue 作成のみで動作確認したいとき）"
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # reports/ へのコミット・プッシュ（GITHUB_TOKEN）
@@ -27,12 +32,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           REPO_AUDIT_USERNAME: ${{ vars.REPO_AUDIT_USERNAME }}
+          SKIP_ARCHIVE: ${{ inputs.skip_archive }}  # schedule 実行時は空 = アーカイブする
         run: |
           chmod +x ./repo-audit.sh
           mkdir -p reports
           # --auto-archive: ARCHIVE 候補を自動アーカイブ（description/README に理由を記録後にアーカイブ）
           # --create-issues: STALE リポジトリに Health Check Issue を作成
-          ./repo-audit.sh --output reports/ --create-issues --auto-archive
+          archive_flag="--auto-archive"
+          [[ "${SKIP_ARCHIVE}" == "true" ]] && archive_flag=""
+          ./repo-audit.sh --output reports/ --create-issues ${archive_flag}
 
       - name: Commit report
         run: |
