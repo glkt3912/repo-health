@@ -1,0 +1,69 @@
+=== GitHub Repository Audit: glkt3912 (2026-11-01) ===
+
+🟢 ACTIVE (6 repos)
+  yield-guard                         Go               pushed: 1 day ago            ✓ desc ✓ readme
+  repo-health                         Shell            pushed: 2 days ago           ✓ desc ✓ readme
+  crabplay                            Rust             pushed: 2 days ago           ✓ desc ✓ readme
+  win-venv-check                      —              pushed: 2 days ago           ✗ description なし ✓ readme
+  youtube-audio-downloader            Rust             pushed: 3 weeks ago          ✗ description なし ✓ readme
+  glkt3912                            —              pushed: 1 month ago          ✓ desc ✓ readme
+
+🟡 STALE (17 repos) — 放置気味
+  rust-cli-template                   Rust             pushed: 6 months ago         ✓ desc ✓ readme
+  gymeat                              Rust             pushed: 6 months ago         ✓ desc ✓ readme
+  term-ide-config                     Shell            pushed: 6 months ago         ✓ desc ✓ readme
+  nestjs-bff                          TypeScript       pushed: 7 months ago         ✓ desc ✓ readme
+  docs-mcp-server                     TypeScript       pushed: 8 months ago         ✗ description なし ✓ readme
+  interior-planning-engine            TypeScript       pushed: 8 months ago         ✓ desc ✓ readme
+  vigil                               Kotlin           pushed: 8 months ago         ✗ description なし ✓ readme
+  gh-label-setup                      Shell            pushed: 9 months ago         ✓ desc ✓ readme
+  claude-skills-template              Python           pushed: 9 months ago         ✓ desc ✓ readme
+  rpg                                 Rust             pushed: 9 months ago         ✓ desc ✓ readme
+  flutter-ios-setup                   Shell            pushed: 9 months ago         ✓ desc ✓ readme
+  cargo-clean-all                     Rust             pushed: 9 months ago         ✓ desc ✓ readme
+  dotfiles                            Shell            pushed: 10 months ago        ✓ desc ✓ readme
+  portfolio                           TypeScript       pushed: 10 months ago        ✓ desc ✓ readme
+  terraform-eks-study                 HCL              pushed: 11 months ago        ✓ desc ✓ readme
+  claude-code-subagents               —              pushed: 11 months ago        ✓ desc ✓ readme
+  log-parser                          Rust             pushed: 11 months ago        ✓ desc ✓ readme
+
+🔴 ARCHIVE CANDIDATES (38 repos)
+  subcheck-vault                      —         pushed: 1 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  vyb-code                            Go          pushed: 1 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  ap-study-backend                    TypeScript  pushed: 1 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  ap-study-project                    Shell       pushed: 1 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  ap-study-app                        TypeScript  pushed: 1 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  resume-builder                      JavaScript  pushed: 1 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  tutorial-mcp                        TypeScript  pushed: 1 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  try-grpc                            —         pushed: 1 year(s) ago         fork:false stars:0 ✗ description なし ✗ README なし
+  tutorial-kubernates                 Shell       pushed: 1 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  admin-replace-ts-base               JavaScript  pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  prisma-multi-db-example             JavaScript  pushed: 2 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  nestjs-crud-sample                  TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  organization-usage-status-api       TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  test-repo                           —         pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  gcr-sample-api                      TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  test-hono                           TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  todo-server-test                    TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✗ README なし
+  todo-client-test                    TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  puppeteer-scraping                  JavaScript  pushed: 2 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  local-settings-flow                 —         pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  parts-port-frontend                 TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  parts-port-api                      TypeScript  pushed: 2 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  rust-lesson-memo                    Rust        pushed: 2 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  nestjs-tutorial                     TypeScript  pushed: 3 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  nestjs-template                     TypeScript  pushed: 3 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  aws-amplify-test                    HTML        pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  next-md-blog                        TypeScript  pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  jest-test                           TypeScript  pushed: 3 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  YoutubeToMp3                        CSS         pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  summary-openai                      JavaScript  pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  image-generation-tutorial           TypeScript  pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  storybook-tutorial                  —         pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✗ README なし
+  prisma-test                         TypeScript  pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  github-flow-tutorial                JavaScript  pushed: 3 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  Students-MS                         PHP         pushed: 5 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+  gitTest                             —         pushed: 5 year(s) ago         fork:false stars:0 ✗ description なし ✗ README なし
+  MakingCG                            —         pushed: 5 year(s) ago         fork:false stars:0 ✓ desc ✓ readme
+  laravel_udemy_test                  PHP         pushed: 5 year(s) ago         fork:false stars:0 ✗ description なし ✓ readme
+
